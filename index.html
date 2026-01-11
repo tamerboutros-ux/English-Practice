@@ -1,3 +1,6 @@
+English practice final · HTML
+Copy
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -58,6 +61,30 @@
         .subtitle {
             font-size: 1.1em;
             opacity: 0.95;
+        }
+
+        .progress-bar-container {
+            background: #e0e0e0;
+            height: 8px;
+            border-radius: 10px;
+            margin: 20px 30px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, var(--success), var(--blue));
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-top: 5px;
+            font-weight: 600;
         }
 
         .level-selector {
@@ -242,6 +269,13 @@
             <button class="level-btn secondary" onclick="selectLevel('secondary')">
                 🚀 1º Secundaria
             </button>
+        </div>
+
+        <div id="progressContainer" style="display: none;">
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="progress-text" id="progressText">Ejercicio 0 de 10</div>
         </div>
 
         <div class="exercise-area" id="exerciseArea">
@@ -1094,6 +1128,57 @@ const exercisesSecondary = [
         let score = 0;
         let total = 0;
         let selectedExercises = [];
+        let wrongAnswers = []; // Para guardar los errores y revisarlos
+
+        // FUNCIÓN: Reproducir sonido de éxito
+        function playSuccessSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 523.25; // C5
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+
+            // Segunda nota
+            setTimeout(() => {
+                const osc2 = audioContext.createOscillator();
+                const gain2 = audioContext.createGain();
+                osc2.connect(gain2);
+                gain2.connect(audioContext.destination);
+                osc2.frequency.value = 659.25; // E5
+                osc2.type = 'sine';
+                gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                osc2.start(audioContext.currentTime);
+                osc2.stop(audioContext.currentTime + 0.3);
+            }, 100);
+        }
+
+        // FUNCIÓN: Reproducir sonido de error
+        function playErrorSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 200;
+            oscillator.type = 'sawtooth';
+            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
 
         // FUNCIÓN: Seleccionar ejercicios aleatorios
         function selectRandomExercises(exerciseBank, count) {
@@ -1107,15 +1192,30 @@ const exercisesSecondary = [
             currentExerciseIndex = 0;
             score = 0;
             total = 0;
-            
+            wrongAnswers = [];
+
             // Seleccionar 10 ejercicios aleatorios
             if (level === 'primary') {
                 selectedExercises = selectRandomExercises(exercisesPrimary, 10);
             } else {
                 selectedExercises = selectRandomExercises(exercisesSecondary, 10);
             }
-            
+
+            // Mostrar barra de progreso
+            document.getElementById('progressContainer').style.display = 'block';
+            updateProgress();
+
             loadExercise();
+        }
+
+        // FUNCIÓN: Actualizar barra de progreso
+        function updateProgress() {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const percentage = (currentExerciseIndex / selectedExercises.length) * 100;
+
+            progressBar.style.width = percentage + '%';
+            progressText.textContent = `Ejercicio ${currentExerciseIndex} de ${selectedExercises.length}`;
         }
 
         // FUNCIÓN: Muestra el ejercicio actual en pantalla
@@ -1155,7 +1255,7 @@ const exercisesSecondary = [
             const userAnswer = document.getElementById('answerInput').value.trim().toLowerCase();
             const exercise = selectedExercises[currentExerciseIndex];
             const correctAnswer = exercise.answer.toLowerCase();
-            
+
             // Crear o encontrar el área de feedback
             let feedbackArea = document.getElementById('feedbackArea');
             if (!feedbackArea) {
@@ -1163,23 +1263,27 @@ const exercisesSecondary = [
                 feedbackArea.id = 'feedbackArea';
                 document.querySelector('.exercise-card').appendChild(feedbackArea);
             }
-            
+
             total++;
-            
-            // Aceptar variaciones comunes
+
+            // Aceptar variaciones comunes - mejorado
             const acceptableAnswers = [correctAnswer];
-            
+
             // Para mustn't/must not
             if (correctAnswer.includes("mustn't")) acceptableAnswers.push(correctAnswer.replace("mustn't", "must not"));
             if (correctAnswer.includes("must not")) acceptableAnswers.push(correctAnswer.replace("must not", "mustn't"));
-            
+
             // Para isn't/is not, aren't/are not, etc.
             if (correctAnswer.includes("n't")) acceptableAnswers.push(correctAnswer.replace("n't", " not"));
-            
-            const isCorrect = acceptableAnswers.some(ans => userAnswer === ans);
-            
+
+            // Normalizar espacios extras
+            const normalizedUserAnswer = userAnswer.replace(/\s+/g, ' ').trim();
+
+            const isCorrect = acceptableAnswers.some(ans => normalizedUserAnswer === ans);
+
             if (isCorrect) {
                 score++;
+                playSuccessSound(); // Sonido de éxito
                 feedbackArea.innerHTML = `
                     <div class="feedback correct">
                         🎉 ¡Excelente! La respuesta es correcta: <strong>${exercise.answer}</strong>
@@ -1191,6 +1295,17 @@ const exercisesSecondary = [
                     </div>
                 `;
             } else {
+                playErrorSound(); // Sonido de error
+
+                // Guardar error para revisión
+                wrongAnswers.push({
+                    sentence: exercise.sentence,
+                    userAnswer: userAnswer,
+                    correctAnswer: exercise.answer,
+                    hint: exercise.hint,
+                    tense: exercise.tense || ''
+                });
+
                 feedbackArea.innerHTML = `
                     <div class="feedback incorrect">
                         🤔 No es correcto. La respuesta correcta es: <strong>${exercise.answer}</strong>
@@ -1205,6 +1320,9 @@ const exercisesSecondary = [
                     </div>
                 `;
             }
+
+            // Guardar progreso en localStorage
+            saveProgress();
         }
 
         // FUNCIÓN: Intentar de nuevo
@@ -1217,12 +1335,82 @@ const exercisesSecondary = [
         // FUNCIÓN: Pasar al siguiente ejercicio
         function nextExercise() {
             currentExerciseIndex++;
-            
+            updateProgress();
+
             if (currentExerciseIndex >= selectedExercises.length) {
                 showFinalMessage();
             } else {
                 loadExercise();
             }
+        }
+
+        // FUNCIÓN: Guardar progreso en localStorage
+        function saveProgress() {
+            const progress = {
+                level: currentLevel,
+                score: score,
+                total: total,
+                date: new Date().toISOString()
+            };
+            localStorage.setItem('englishPracticeProgress', JSON.stringify(progress));
+        }
+
+        // FUNCIÓN: Mostrar errores para revisar
+        function showReviewErrors() {
+            const exerciseArea = document.getElementById('exerciseArea');
+
+            if (wrongAnswers.length === 0) {
+                exerciseArea.innerHTML = `
+                    <div class="exercise-card" style="text-align: center; padding: 50px;">
+                        <div style="font-size: 4em; margin-bottom: 20px;">🎯</div>
+                        <h2 style="color: var(--success); font-family: 'Fredoka', sans-serif; font-size: 2em;">
+                            ¡No tuviste ningún error!
+                        </h2>
+                        <p style="margin-top: 20px; font-size: 1.2em;">¡Perfecto! 🏆</p>
+                        <button class="check-btn" onclick="location.reload()" style="margin-top: 30px; font-size: 1.2em; padding: 15px 40px;">
+                            🔄 Empezar de nuevo
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            let errorsHTML = `
+                <div class="exercise-card" style="padding: 30px;">
+                    <h2 style="color: var(--purple); font-family: 'Fredoka', sans-serif; text-align: center; margin-bottom: 20px;">
+                        📚 Revisa tus errores (${wrongAnswers.length})
+                    </h2>
+            `;
+
+            wrongAnswers.forEach((error, index) => {
+                errorsHTML += `
+                    <div style="background: #f8f9fa; border-radius: 15px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #FF6B6B;">
+                        <div style="color: #6c757d; font-size: 0.9em; margin-bottom: 5px;">Ejercicio ${index + 1}</div>
+                        <div style="font-size: 1.2em; margin-bottom: 10px;">${error.sentence}</div>
+                        <div style="background: white; padding: 10px; border-radius: 10px; margin-top: 10px;">
+                            <div style="color: #dc3545; margin-bottom: 5px;">
+                                ❌ Tu respuesta: <strong>${error.userAnswer || '(vacía)'}</strong>
+                            </div>
+                            <div style="color: #28a745;">
+                                ✅ Respuesta correcta: <strong>${error.correctAnswer}</strong>
+                            </div>
+                            ${error.tense ? `<div style="color: #6c757d; margin-top: 5px; font-size: 0.9em;">📖 ${error.tense}</div>` : ''}
+                            <div style="color: #856404; margin-top: 5px; font-size: 0.9em;">💡 ${error.hint}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            errorsHTML += `
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button class="check-btn" onclick="location.reload()" style="font-size: 1.1em; padding: 12px 30px;">
+                            🔄 Practicar de nuevo
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            exerciseArea.innerHTML = errorsHTML;
         }
 
         // FUNCIÓN: Mensaje final
@@ -1260,6 +1448,12 @@ const exercisesSecondary = [
                         <div style="font-size: 2.5em; color: var(--success); font-weight: 600; margin-top: 15px;">${percentage}%</div>
                         <div style="color: #6c757d;">Porcentaje de acierto</div>
                     </div>
+                    ${wrongAnswers.length > 0 ? `
+                        <button class="check-btn" onclick="showReviewErrors()" style="font-size: 1.2em; padding: 15px 40px; margin-top: 20px; background: linear-gradient(135deg, #FF6B9D, #FEC84E);">
+                            📚 Revisar errores (${wrongAnswers.length})
+                        </button>
+                        <br>
+                    ` : ''}
                     <button class="check-btn" onclick="location.reload()" style="font-size: 1.2em; padding: 15px 40px; margin-top: 20px;">
                         🔄 Empezar de nuevo
                     </button>
