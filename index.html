@@ -1667,8 +1667,6 @@ const exercisesSecondary = [
                 document.querySelector('.exercise-card').appendChild(feedbackArea);
             }
 
-            total++;
-
             // Aceptar variaciones comunes - mejorado
             const acceptableAnswers = [correctAnswer];
 
@@ -1737,6 +1735,7 @@ const exercisesSecondary = [
 
         // FUNCIÓN: Pasar al siguiente ejercicio
         function nextExercise() {
+            total++;
             currentExerciseIndex++;
             updateProgress();
 
